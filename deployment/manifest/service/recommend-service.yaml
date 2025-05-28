@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommend-service
+  namespace: dg0410-lifesub-ns
+  labels:
+    app: recommend
+spec:
+  selector:
+    app: recommend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
