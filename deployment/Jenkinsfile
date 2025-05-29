@@ -12,7 +12,7 @@ podTemplate(
     containers: [
         containerTemplate(name: 'podman', image: "mgoltzsche/podman", ttyEnabled: true, command: 'cat', privileged: true),
         containerTemplate(name: 'gradle',
-                        image: 'gradle:jdk21',
+                        image: 'gradle:jdk17',
                         ttyEnabled: true,
                         command: 'cat',
                         envVars: [
@@ -21,14 +21,12 @@ podTemplate(
                             envVar(key: 'TESTCONTAINERS_RYUK_DISABLED', value: 'true')
                         ]),
         containerTemplate(name: 'azure-cli', image: 'hiondal/azure-kubectl:latest', command: 'cat', ttyEnabled: true),
-        containerTemplate(name: 'envsubst', image: "hiondal/envsubst", command: 'sleep', args: '1h'),
-        containerTemplate(name: 'sonar-scanner', image: 'sonarsource/sonar-scanner-cli:latest', command: 'cat', ttyEnabled: true)
+        containerTemplate(name: 'envsubst', image: "hiondal/envsubst", command: 'sleep', args: '1h')
     ],
     volumes: [
         emptyDirVolume(mountPath: '/home/gradle/.gradle', memory: false),
         emptyDirVolume(mountPath: '/root/.azure', memory: false),
-        emptyDirVolume(mountPath: '/run/podman', memory: false),
-        emptyDirVolume(mountPath: '/opt/sonar-scanner/.sonar/cache', memory: false)
+        emptyDirVolume(mountPath: '/run/podman', memory: false)
     ]
 ) {
     node(PIPELINE_ID) {
@@ -75,7 +73,7 @@ testcontainers.reuse.enable=true'''
                     echo '${testContainersConfig}' > recommend/src/test/resources/testcontainers.properties
                 """
 
-                // 빌드 및 SonarQube 분석
+                // Member 서비스 빌드 및 SonarQube 분석
                 withSonarQubeEnv('SonarQube') {
                     sh """
                         chmod +x gradlew
@@ -86,7 +84,7 @@ testcontainers.reuse.enable=true'''
                         # Member 서비스
                         ./gradlew :member:test :member:jacocoTestReport :member:sonar \
                             -Dsonar.projectKey=lifesub-member-dg0410 \
-                            -Dsonar.projectName=lifesub-member \
+                            -Dsonar.projectName=lifesub-member-dg0410 \
                             -Dsonar.java.binaries=build/classes/java/main \
                             -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml \
                             -Dsonar.exclusions=**/config/**,**/entity/**,**/dto/**,**/*Application.class,**/exception/**
@@ -94,7 +92,7 @@ testcontainers.reuse.enable=true'''
                         # Recommend 서비스
                         ./gradlew :recommend:test :recommend:jacocoTestReport :recommend:sonar \
                             -Dsonar.projectKey=lifesub-recommend-dg0410 \
-                            -Dsonar.projectName=lifesub-recommend \
+                            -Dsonar.projectName=lifesub-recommend-dg0410 \
                             -Dsonar.java.binaries=build/classes/java/main \
                             -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml \
                             -Dsonar.exclusions=**/config/**,**/entity/**,**/dto/**,**/*Application.class,**/exception/**
@@ -102,12 +100,13 @@ testcontainers.reuse.enable=true'''
                         # Mysub 서비스 (biz & infra 구조)
                         ./gradlew :mysub-infra:test :mysub-infra:jacocoTestReport :mysub-infra:sonar \
                             -Dsonar.projectKey=lifesub-mysub-dg0410 \
-                            -Dsonar.projectName=lifesub-mysub \
+                            -Dsonar.projectName=lifesub-mysub-dg0410 \
                             -Dsonar.java.binaries=build/classes/java/main \
                             -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml \
                             -Dsonar.exclusions=**/config/**,**/entity/**,**/dto/**,**/*Application.class,**/exception/**
                     """
                 }
+
             }
         }
 
@@ -169,7 +168,10 @@ testcontainers.reuse.enable=true'''
 
                     # manifest 생성
                     envsubst < deployment/${manifest}.template > deployment/${manifest}
+                    
+                    echo "=== Generated Manifest File ==="
                     cat deployment/${manifest}
+                    echo "================================"
                 """
             }
 
@@ -182,7 +184,11 @@ testcontainers.reuse.enable=true'''
                     kubectl -n ${namespace} wait --for=condition=available deployment/mysub --timeout=300s
                     kubectl -n ${namespace} wait --for=condition=available deployment/recommend --timeout=300s
                     
-                    echo "Deployment completed successfully!"
+                    echo "=== Deployment Status ==="
+                    kubectl -n ${namespace} get pods
+                    kubectl -n ${namespace} get svc
+                    kubectl -n ${namespace} get ingress
+                    echo "========================="
                 """
             }
         }

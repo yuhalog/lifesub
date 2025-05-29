@@ -10,6 +10,8 @@ image_org=dg0410
 # Application Settings
 replicas=1
 allowed_origins=http://4.230.156.121
+
+# Network Settings
 ingress_host=dg0410.20.249.184.228.nip.io
 
 # Security Settings
